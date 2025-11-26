@@ -3,60 +3,145 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Chatraum (Firebase Realtime)</title>
+<title>Chat</title>
 <style>
-  :root{--bg:#f7f7f8;--text:#111;--accent:#0b84ff}
-  .dark{--bg:#0b0d11;--text:#e6eef8;--accent:#4da3ff}
-  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh}
-  header{padding:12px;display:flex;justify-content:space-between;align-items:center}
-  main{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
-  .msg{padding:8px 12px;border-radius:12px;max-width:82%;background:#fff}
-  .me{align-self:flex-end}
-  .other{align-self:flex-start}
-  footer{display:flex;padding:10px;gap:8px;border-top:1px solid rgba(0,0,0,0.06)}
-  input{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(0,0,0,0.08)}
-  button{padding:9px 12px;border-radius:10px;border:none;background:var(--accent);color:white}
-  .small{padding:7px 10px;border-radius:9px;border:1px solid rgba(0,0,0,0.08);background:transparent}
-  @media (max-width:420px){ .msg{max-width:94%} }
+  /* Farbvariablen — ändern hier, nicht überall im CSS */
+  :root{
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --text: #0b0b0b;
+    --muted: red;
+   /* --muted: #6b7280;*/
+    --accent: #0b84ff;
+/*    --accent: lightblue;*/
+    --success: #16a34a;
+    --danger: #ef4444;
+    --footer-h: 60px;
+  }
+  /* Dark mode overrides */
+  .dark{
+    --bg: #0b0d11;
+    --panel: #0f1317;
+    --text: #e6eef8;
+    --muted: red;
+   /* --muted: #9aa6b2;*/
+    --accent: #4da3ff;
+    --success: #34d399;
+    --danger: #fb7185;
+  }
+
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+  body{display:flex;flex-direction:column;min-height:100vh}
+
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px;
+    gap:8px;
+    background:transparent;
+  }
+  .leftHead{display:flex;flex-direction:column}
+  #who{font-weight:700}
+  #sub{font-size:0.85rem;color:var(--muted)}
+
+  .controls{display:flex;gap:8px;align-items:center}
+  .small{
+    padding:7px 10px;border-radius:9px;border:1px solid rgba(0,0,0,0.06);
+    background:var(--panel);color:var(--text);font-weight:600;font-size:0.9rem;
+  }
+  /* Status-Badge: grün bei online */
+  #status{
+    border: none;
+    padding:6px 10px;border-radius:8px;
+    font-weight:700;
+    background:transparent;
+    color:var(--muted);
+  }
+  #status.online{ background: rgba(34,197,94,0.12); color:var(--success); }
+  #status.offline{ background: transparent; color:var(--muted); opacity:0.9; }
+
+  main{
+    flex:1; overflow:auto; display:flex;flex-direction:column; gap:8px;
+    padding:12px; padding-bottom: calc(var(--footer-h) + 16px); /* Platz für fixed footer */
+  }
+
+  .msg{
+    max-width:84%; padding:10px 12px; border-radius:12px; background:var(--panel);
+    color:var(--text); box-shadow: 0 1px 0 rgba(0,0,0,0.03); font-size:0.97rem;
+    word-break:break-word;
+  }
+  .me{ align-self:flex-end; background:linear-gradient(180deg,var(--accent),#0a6fe0); color:white; }
+  .other{ align-self:flex-start; }
+
+  .meta{ font-size:0.75rem; color:var(--muted); margin-top:6px; display:block; }
+
+  footer{
+    position:fixed; left:0; right:0; bottom:0; height:var(--footer-h);
+    display:flex; gap:8px; align-items:center; padding:8px 10px;
+    background:linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.03));
+    backdrop-filter: blur(6px);
+  }
+  input[type="text"]{
+    flex:1; padding:12px;border-radius:10px;border:1px solid rgba(0,0,0,0.08); font-size:1rem; outline:none;
+    background:var(--panel); color:var(--text);
+  }
+  button#send{ padding:10px 14px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:700 }
+
+  /* Kopfhöhe mobil optimiert */
+  @media (max-width:420px){
+    .msg{max-width:94%;}
+    header{padding:10px}
+    footer{padding:8px}
+  }
 </style>
 </head>
 <body>
+
 <header>
-  <div id="who">Chatraum</div>
-  <div>
-    <button class="small" id="themeBtn">Modus</button>
-    <button class="small" id="status" disabled>verbinden...</button>
+  <div class="leftHead">
+    <div id="who">Chatraum</div>
+
+    <div id="sub">: <span id="statusText">--</span></div>
+
+  </div>
+
+  <div class="controls">
+    <!-- Theme, Download, Clear, Status -->
+    <button class="small" id="themeBtn" aria-label="Modus wechseln">Modus</button>
+
+    <button class="small" id="downloadBtn" aria-label="Chat herunterladen"></button> 
+
+    <button class="small" id="clearBtn" aria-label="Chat löschen" title="Löscht lokalen Verlauf und (optional) Firebase-Einträge"></button>
+    <button id="status" class="offline" disabled aria-hidden="true">—</button>
   </div>
 </header>
 
 <main id="messages" aria-live="polite"></main>
 
 <footer>
-  <input id="inp" placeholder="Nachricht...">
+  <input id="inp" type="text" placeholder="Nachricht..." aria-label="Nachricht">
   <button id="send">Senden</button>
 </footer>
 
-<!-- Firebase SDK (compat, einfach zu benutzen) -->
+<!-- Firebase SDK (compat, wie vorher) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
 <script>
-/* ============================
-   EINFACH: Firebase konfigurieren
-   Ersetze das folgende Objekt mit deiner Firebase-Web-Konfig
-   (apiKey, authDomain, databaseURL, projectId, storageBucket, messagingSenderId, appId)
-   ============================ */
+/* ================= Configuration =================
+   Trage hier deine Firebase-Web-Konfig ein (wie vorher).
+   Die Realtime Database (databaseURL) muss vorhanden sein.
+*/
 const FIREBASE_CONFIG = {
-  // !!! FIREBASE CONFIG HIER EINFÜGEN !!! Beispiel:
-  // apiKey: "AIza....",
-  // authDomain: "projekt.firebaseapp.com",
+  // apiKey: "...",
+  // authDomain: "...",
   // databaseURL: "https://projekt-default-rtdb.firebaseio.com",
-  // projectId: "projekt",
-  // storageBucket: "projekt.appspot.com",
-  // messagingSenderId: "12345",
-  // appId: "1:123:web:abc"
-
+  // projectId: "...",
+  // storageBucket: "...",
+  // messagingSenderId: "...",
+  // appId: "..."
+  
   apiKey: "AIzaSyBl9SV2KezN1QzwnOQeOopnwrdi0ti13Pc",
   authDomain: "adressc-8d600.firebaseapp.com",
   databaseURL: "https://adressc-8d600-default-rtdb.europe-west1.firebasedatabase.app",
@@ -66,153 +151,171 @@ const FIREBASE_CONFIG = {
   appId: "1:71318669432:web:590a9111cfece6c73c058d",
   measurementId: "G-JFFCNCXCEW"
 
+  
 };
+/* ================================================= */
 
-
-/* -------------------------
-   Keys & UI-Elemente
-   ------------------------- */
 const KEY_NAME = 'chat_name';
 const KEY_HISTORY = 'chat_history';
 const NAME_PROMPT = 'Wie heißt du?';
 
+/* ---------- UI references ---------- */
 const whoEl = document.getElementById('who');
 const messagesEl = document.getElementById('messages');
 const inp = document.getElementById('inp');
 const sendBtn = document.getElementById('send');
 const themeBtn = document.getElementById('themeBtn');
-const statusBtn = document.getElementById('status');
+const downloadBtn = document.getElementById('downloadBtn');
+const clearBtn = document.getElementById('clearBtn');
+const statusEl = document.getElementById('status');
+const statusText = document.getElementById('statusText');
 
-/* -------------------------
-   Benutzername (localStorage)
-   ------------------------- */
+/* ---------- Name ---------- */
 let name = localStorage.getItem(KEY_NAME);
 if (!name) {
   name = (prompt(NAME_PROMPT) || '').trim() || 'Gast';
   localStorage.setItem(KEY_NAME, name);
 }
-whoEl.textContent = name + ' — Chat';
+whoEl.textContent = name + '✨';
 
-/* -------------------------
-   Theme
-   ------------------------- */
+/* ---------- Theme handling (keeps contrast) ---------- */
 if (localStorage.getItem('chat_dark') === '1') document.documentElement.classList.add('dark');
 themeBtn.addEventListener('click', () => {
   const d = document.documentElement.classList.toggle('dark');
   localStorage.setItem('chat_dark', d ? '1' : '0');
 });
 
-/* -------------------------
-   lokale History (Fortführung)
-   ------------------------- */
+/* ---------- Local history (sofort anzeigen) ---------- */
 let history = [];
 try { const raw = localStorage.getItem(KEY_HISTORY); if (raw) history = JSON.parse(raw); } catch(e){ history = []; }
 function saveLocal(){ localStorage.setItem(KEY_HISTORY, JSON.stringify(history)); }
 function render(){
   messagesEl.innerHTML = '';
-  history.forEach(m=>{
-    const d = document.createElement('div');
-    d.className = 'msg ' + (m.name === name ? 'me' : 'other');
-    // optional: Zeit anzeigen (vormattiert)
-    const time = m.time ? (' • ' + new Date(m.time).toLocaleTimeString()) : '';
-    d.textContent = `${m.name} — ${m.text}${time}`;
-    messagesEl.appendChild(d);
+  history.forEach(m => {
+    const el = document.createElement('div');
+    el.className = 'msg ' + (m.name === name ? 'me' : 'other');
+    // Name + Text + kleine Zeit
+    const t = m.time ? (' • ' + new Date(m.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})) : '';
+    el.innerHTML = `<strong style="display:block">${m.name}</strong><span>${escapeHtml(m.text)}</span><span class="meta">${t}</span>`;
+    messagesEl.appendChild(el);
   });
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-/* -------------------------
-   Firebase initialisieren
-   ------------------------- */
+/* safe simple html-escape for messages */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- Firebase init & sync ---------- */
 let firebaseConnected = false;
 let dbRef = null;
 
-function setStatus(s){
-  statusBtn.textContent = s;
-  statusBtn.style.opacity = s === 'online' ? '1' : '0.7';
+function setStatusOnline(on){
+  if (on){
+    statusEl.classList.remove('offline'); statusEl.classList.add('online');
+    statusEl.textContent = 'online';
+    statusText.textContent = 'online';
+  } else {
+    statusEl.classList.remove('online'); statusEl.classList.add('offline');
+    statusEl.textContent = 'offline';
+    statusText.textContent = 'offline';
+  }
 }
 
 function initFirebase(){
   if (!FIREBASE_CONFIG || !FIREBASE_CONFIG.databaseURL) {
-    setStatus('Konfig. fehlt');
+    setStatusOnline(false);
     console.warn('Firebase-Konfig fehlt oder databaseURL nicht gesetzt. Bitte FIREBASE_CONFIG eintragen.');
     return;
   }
-
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     const db = firebase.database();
-    dbRef = db.ref('simple_chat_room/messages'); // gemeinsamer Pfad
-    firebaseConnected = true;
-    setStatus('online');
-
-    // Beim Start vorhandene History (einmalig) laden -> 'child_added' feuert für jedes vorhandene
+    dbRef = db.ref('simple_chat_room/messages');
+    // listen for realtime additions
     dbRef.on('child_added', snap => {
       const m = snap.val();
       if (m) pushIfNew(m);
     });
-
-    // Optional: auf 'child_changed' / 'child_removed' reagieren falls gebraucht
-  } catch(e){
+    setStatusOnline(true);
+    firebaseConnected = true;
+  } catch(e) {
     console.error('Firebase init failed', e);
-    setStatus('Fehler');
+    setStatusOnline(false);
   }
 }
 
-/* -------------------------
-   Nachrichten-Handling
-   ------------------------- */
+/* ---------- push if new and render ---------- */
 function pushIfNew(m){
   if (!m || !m.id) m.id = Date.now() + '-' + Math.random().toString(36).slice(2,8);
-  if (!history.find(x=>x.id===m.id)){
+  if (!history.find(x => x.id === m.id)){
     history.push(m);
-    if (history.length > 1000) history = history.slice(-1000); // begrenzen
+    if (history.length > 2000) history = history.slice(-2000);
     saveLocal();
     render();
   }
 }
 
+/* ---------- send message ---------- */
 function send(){
   const text = inp.value.trim();
   if (!text) return;
   const m = { id: Date.now() + '-' + Math.random().toString(36).slice(2,8), name, text, time: Date.now() };
-
-  // lokal anzeigen
   pushIfNew(m);
   inp.value = '';
-
-  // an Firebase schicken (Server verteilt an alle verbundenen Clients)
+  // push to firebase for distribution
   if (firebaseConnected && dbRef) {
-    // push erzeugt einen eindeutigen Key
-    dbRef.push(m).catch(e => console.warn('Firebase push fehlgeschlagen', e));
+    dbRef.push(m).catch(e => console.warn('Firebase push failed', e));
   } else {
     console.warn('Nicht mit Firebase verbunden: Nachricht nur lokal gespeichert.');
   }
 }
 
-/* -------------------------
-   Events & Start
-   ------------------------- */
+/* ---------- download chat as JSON ---------- */
+ downloadBtn.addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `chat_history_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+/* ---------- clear chat (local + optional firebase) ---------- */
+clearBtn.addEventListener('click', async () => {
+  if (!confirm('Chatverlauf lokal löschen? (Firebase bleibt unberührt, wenn du nicht bestätigst)')) return;
+  // lokal löschen
+  history = [];
+  saveLocal();
+  render();
+  // fragen ob auch Firebase-Einträge entfernt werden sollen (Achtung: vermeidet versehentliches Löschen)
+  if (firebaseConnected && confirm('Auch alle Nachrichten in Firebase löschen? (dies wirkt global)')) {
+    try {
+      await dbRef.remove();
+      alert('Firebase-Nachrichten gelöscht.');
+    } catch (e) {
+      console.warn('Firebase remove failed', e);
+      alert('Löschen in Firebase fehlgeschlagen (Konsole prüfen).');
+    }
+  }
+});
+
+/* ---------- events ---------- */
 sendBtn.addEventListener('click', send);
 inp.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
 
-// Zeige lokalen Verlauf sofort (sofern vorhanden)
+/* ---------- start ---------- */
 render();
-
-// Init Firebase (sofort, wenn Konfig eingetragen wurde)
 initFirebase();
 
-/* ============================
-   Hinweise zur Firebase-Config & DB-Regeln
-   ============================
-1) Erstelle in der Firebase Console ein Projekt und aktiviere Realtime Database.
-2) Kopiere die Web-Konfiguration (zu finden in Projekt -> Einstellungen -> Web-Apps oder SDK) und füge sie oben in FIREBASE_CONFIG ein.
-   Achte darauf, dass databaseURL vorhanden ist (wird für Realtime DB benötigt).
-3) Temporäre Test-Regeln (öffnen Lese-/Schreibrechte) — setze in Realtime Database -> Regeln:
-   {\n  \"rules\": {\n    \".read\": true,\n    \".write\": true\n  }\n}\n   -> Diese Regeln sind unsicher für Produktion. Für öffentliche Tests ok, ansonsten einschränken (Authentifizierung, Tokens).
-4) Deploy: Datei in GitHub -> Vercel verbinden -> Deploy. Vercel liefert HTTPS. Deine Seite verbindet sich direkt mit Firebase (keine Server nötig).
-5) Sicherheit: Für private Chats solltest du Auth (Firebase Auth) nutzen oder die DB-Regeln anpassen, damit nicht jeder schreiben/lesen darf.
-============================ */
+/* ---------- accessibility nicety: focus input on open ---------- */
+inp.focus();
+
 </script>
 </body>
 </html>
