@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Einfacher Chatraum</title>
+  <style>
+    /* Einfaches, mobiles Layout */
+    :root{--bg:#f7f7f8;--text:#111;--accent:#0b84ff}
+    .dark{--bg:#0b0d11;--text:#e6eef8;--accent:#4da3ff}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+    header{padding:12px 14px;font-weight:600;display:flex;gap:8px;align-items:center;justify-content:space-between}
+    .name{font-size:0.95rem;opacity:0.9}
+    .controls{display:flex;gap:8px}
+    main{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+    .msg{max-width:80%;padding:8px 10px;border-radius:12px;background:#fff;box-shadow:0 1px 0 rgba(0,0,0,0.04)}
+    .dark .msg{background:#111318}
+    .me{align-self:flex-end}
+    .other{align-self:flex-start;opacity:0.95}
+    footer{display:flex;padding:10px;gap:8px;border-top:1px solid rgba(0,0,0,0.06);background:transparent}
+    input[type=text]{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(0,0,0,0.08);font-size:1rem}
+    button{padding:9px 12px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:600}
+    .small{padding:8px 10px;background:transparent;border:1px solid rgba(0,0,0,0.08);color:var(--text);font-weight:600}
+    /* kleine Verbesserungen für Mobile */
+    @media (max-width:420px){header{padding:10px}input[type=text]{font-size:1rem;padding:12px}} 
+  </style>
+</head>
+<body>
+  <header>
+    <div class="name" id="headerName">Chatraum</div>
+    <div class="controls">
+      <button class="small" id="toggleTheme">Modus</button>
+<!--      <button class="small" id="clearChat">Lösche Chat</button>
+-->
+    </div>
+  </header>
+
+  <main id="messages" aria-live="polite"></main>
+
+  <footer>
+    <input type="text" id="inp" placeholder="Nachricht...">
+    <button id="send">Senden</button>
+  </footer>
+
+  <script>
+    // Schlüssel für localStorage
+    const KEY_NAME = 'chat_name';
+    const KEY_HISTORY = 'chat_history';
+    const KEY_DARK = 'chat_dark';
+
+    // DOM-Elemente
+    const headerName = document.getElementById('headerName');
+    const messagesEl = document.getElementById('messages');
+    const inp = document.getElementById('inp');
+    const sendBtn = document.getElementById('send');
+    const toggleTheme = document.getElementById('toggleTheme');
+    const clearChatBtn = document.getElementById('clearChat');
+
+    // Name abfragen (bei erstem Zugang)
+    let name = localStorage.getItem(KEY_NAME);
+    if (!name) {
+      // Sehr einfache Abfrage — kann später durch ein Modal ersetzt werden
+      name = (prompt('Wie heißt du?') || '').trim() || 'Gast';
+      localStorage.setItem(KEY_NAME, name);
+    }
+    headerName.textContent = name + ' — Chatraum';
+
+    // Theme laden
+    const isDark = localStorage.getItem(KEY_DARK) === '1';
+    if (isDark) document.documentElement.classList.add('dark');
+
+    // Chat-Verlauf laden
+    let history = [];
+    try{
+      const raw = localStorage.getItem(KEY_HISTORY);
+      if (raw) history = JSON.parse(raw);
+    }catch(e){ history = []; }
+
+    // Anzeige aktualisieren
+    function render(){
+      messagesEl.innerHTML = '';
+      history.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'msg ' + (msg.name === name ? 'me' : 'other');
+        div.textContent = msg.name + (msg.name===name? ' — ':' — ') + msg.text;
+        messagesEl.appendChild(div);
+      });
+      // nach unten scrollen
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // Nachricht senden
+    function send(){
+      const text = inp.value.trim();
+      if (!text) return;
+      const m = {name, text, time: Date.now()};
+      history.push(m);
+      localStorage.setItem(KEY_HISTORY, JSON.stringify(history));
+      inp.value = '';
+      render();
+    }
+
+    // Event-Listener
+    sendBtn.addEventListener('click', send);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+    // Theme umschalten
+    toggleTheme.addEventListener('click', () => {
+      const darkNow = document.documentElement.classList.toggle('dark');
+      localStorage.setItem(KEY_DARK, darkNow ? '1' : '0');
+    });
+
+    // Chat löschen (fragt nicht nach Namen) — nur Verlauf
+    clearChatBtn.addEventListener('click', () => {
+      if (confirm('Chatverlauf wirklich löschen?')){
+        history = [];
+        localStorage.removeItem(KEY_HISTORY);
+        render();
+      }
+    });
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>
